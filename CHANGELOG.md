@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### Added (2026-10-16, claude-usage-bar-v2) [1.5h]
+### Added (2026-10-16, claude-usage-bar-v2) [0.27h]
 - Rebuilt the menu bar usage widget as a versioned repo. The v1 source lived only on the MacBook.
 - **New visuals:**
   - an animated pixel mascot whose mood follows session usage
