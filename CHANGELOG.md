@@ -2,8 +2,12 @@
 
 ## [Unreleased]
 
+### Added (2026-10-16, open-source-release) [0.25h]
+- Prepared the repo for public release: MIT license, an unofficial-project note, a screenshots section (menu bar strip plus the four popover states, rendered from sample data), an https clone URL, first-launch keychain guidance and a plain statement of what happens to your sign-in.
+- Audited the code and full git history for secrets with gitleaks (no findings) before making it public.
+
 ### Added (2026-10-16, claude-usage-bar-v2) [0.27h]
-- Rebuilt the menu bar usage widget as a versioned repo. The v1 source lived only on the MacBook.
+- Rebuilt the menu bar usage widget as a versioned repo.
 - **New visuals:**
   - an animated pixel mascot whose mood follows session usage
   - drifting pixel clouds
