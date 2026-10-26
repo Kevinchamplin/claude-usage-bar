@@ -38,9 +38,9 @@ enum UsageError: Error {
 
     var message: String {
         switch self {
-        case .noToken: return "No Claude Code sign-in found. Run `claude` once."
-        case .expired: return "Sign-in expired. Run Claude Code on this Mac to refresh it."
-        case .unauthorized: return "Sign-in rejected (401). Run Claude Code on this Mac to refresh it."
+        case .noToken: return "Not signed in to Claude on this Mac."
+        case .expired: return "Sign-in expired."
+        case .unauthorized: return "Sign-in rejected (401)."
         case .rateLimited: return "Usage API rate limited (429). Backing off."
         case .network(let m): return m
         }
@@ -96,6 +96,13 @@ enum UsageClient {
         f.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
         guard let d = f.date(from: h) else { return nil }
         return max(0, d.timeIntervalSinceNow)
+    }
+
+    /// True when the keychain token stays valid for at least `margin` seconds.
+    /// An expired item is still present, so presence alone proves nothing.
+    static func hasFreshToken(margin: TimeInterval = 300) -> Bool {
+        guard let c = readCredential() else { return false }
+        return (c.expiresAt ?? .distantFuture) > Date().addingTimeInterval(margin)
     }
 
     private struct Credential {

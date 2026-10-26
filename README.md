@@ -39,7 +39,7 @@ All screenshots are rendered from sample data with `--snapshot`, not a real acco
   - sign-in expired: asleep
 
 Right-click the menu bar item (or use the `...` button) for Refresh, Open usage on
-claude.ai, and Quit. Quit stays quit until the next login.
+claude.ai, and Quit (plus Sign in while the mascot is asleep). Quit stays quit until the next login.
 
 ## Install
 
@@ -70,11 +70,17 @@ There is no prebuilt download on purpose: you build it from the source you can r
 - **Sign-in:** it uses the OAuth token that Claude Code keeps in the login keychain
   (item `Claude Code-credentials`).
 - **Token handling:** the token is read fresh on every poll and sent only to
-  `api.anthropic.com`. The app never logs it, stores it, caches it or refreshes it,
-  so it cannot race Claude Code. No analytics, no other network calls.
+  `api.anthropic.com`. The app never logs it, stores it or caches it, and never
+  refreshes it itself, so it cannot race Claude Code's refresh-token rotation.
+  No analytics, no other network calls of its own.
 - **Expired sign-in:** the app checks the token's expiry before calling the API, so
-  a dead token is never sent. The mascot falls asleep and the popover says so. Run
-  Claude Code on that Mac once to refresh the token; the app picks it up within a minute.
+  a dead token is never sent. The mascot falls asleep and the popover shows a
+  **Sign in** button. The app then asks Claude Code to refresh its own token
+  (`claude auth status`, then one tiny headless `claude -p` on Haiku, run with no
+  tools, MCP servers, settings or hooks). If Claude Code is signed out, the button
+  opens Terminal with `claude auth login` and the widget wakes as soon as the new
+  sign-in lands. While expired it also tries the quiet refresh on its own, at most
+  every 30 minutes, and never opens a window without a click.
 - **Polling:** every 60s. On HTTP 429 it backs off (2, 4, 8, then 15 minutes, or longer
   if the server sends `Retry-After`), and opening the popover does not poll early
   during a backoff. The animation only runs while the popover is open.

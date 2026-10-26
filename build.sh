@@ -9,5 +9,6 @@ swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos14.0" \
   -framework AppKit -framework SwiftUI \
   Sources/*.swift -o "$APP/Contents/MacOS/ClaudeUsageBar"
 cp Info.plist "$APP/Contents/Info.plist"
+cp Resources/* "$APP/Contents/Resources/"
 codesign --force --sign - "$APP" >/dev/null
 echo "built $APP"

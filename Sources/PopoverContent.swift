@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Live wrapper: animates at 12fps while the popover is open, and stops
@@ -11,6 +12,7 @@ struct PopoverContent: View {
                         t: ctx.date.timeIntervalSinceReferenceDate,
                         now: ctx.date,
                         onRefresh: { store.refresh() },
+                        onSignIn: { store.signIn() },
                         onMenu: { AppDelegate.shared?.showMenuAtMouse() })
         }
     }
@@ -23,6 +25,7 @@ struct PopoverBody: View {
     let t: Double
     let now: Date
     var onRefresh: () -> Void = {}
+    var onSignIn: () -> Void = {}
     var onMenu: () -> Void = {}
 
     private var session: Limit? { state.usage?.session }
@@ -169,10 +172,13 @@ struct PopoverBody: View {
     }
 
     private func banner(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: state.sleeping ? "moon.zzz.fill" : "exclamationmark.triangle.fill")
-            Text(text).fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: state.sleeping ? "moon.zzz.fill" : "exclamationmark.triangle.fill")
+                Text(text).fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            if state.sleeping { signInRow }
         }
         .font(Fonts.ui(11))
         .foregroundStyle(Theme.amber)
@@ -180,6 +186,43 @@ struct PopoverBody: View {
         .background(Theme.amber.opacity(0.10))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
+
+    private var signInRow: some View {
+        HStack(spacing: 8) {
+            if state.signingIn {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .foregroundStyle(Theme.brass)
+                    .rotationEffect(.degrees((t * 180).truncatingRemainder(dividingBy: 360)))
+                    .frame(width: 14, height: 14)
+                Text(state.signInNote ?? "Signing in…")
+                    .foregroundStyle(Theme.label)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Button(action: onSignIn) {
+                    Text("Sign in")
+                        .font(Fonts.ui(11, .semibold))
+                        .foregroundStyle(Theme.bgBottom)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(Theme.brass)
+                        .clipShape(Capsule())
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                Text("Uses Claude Code on this Mac")
+                    .font(Fonts.ui(10))
+                    .foregroundStyle(Theme.dim)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 22)
+    }
+
+    /// The Champlin Enterprises mark, bundled in Resources. Nil when the
+    /// binary runs outside the .app, which just leaves the wordmark.
+    private static let ceMark: NSImage? = Bundle.main
+        .url(forResource: "ce-mark", withExtension: "png")
+        .flatMap { NSImage(contentsOf: $0) }
 
     private var footer: some View {
         HStack(spacing: 6) {
@@ -190,6 +233,7 @@ struct PopoverBody: View {
             Text(updatedText)
                 .font(Fonts.ui(10))
                 .foregroundStyle(Theme.dim)
+                .lineLimit(1)
             Button(action: onRefresh) {
                 Image(systemName: "arrow.clockwise")
                     .font(Fonts.ui(10, .semibold))
@@ -200,10 +244,25 @@ struct PopoverBody: View {
             }
             .buttonStyle(.plain)
             Spacer()
-            Text("CHAMPLIN ENTERPRISES")
-                .font(Fonts.ui(9, .semibold))
-                .tracking(1.4)
-                .foregroundStyle(Theme.brass.opacity(0.85))
+            // Lockup: the mark beside a stacked wordmark, so it never wraps
+            // or squeezes the "Updated" line.
+            HStack(spacing: 7) {
+                if let mark = Self.ceMark {
+                    Image(nsImage: mark)
+                        .resizable()
+                        .interpolation(.high)
+                        .frame(width: 18, height: 22)
+                        .accessibilityHidden(true)
+                }
+                Text("CHAMPLIN\nENTERPRISES")
+                    .font(Fonts.ui(9, .semibold))
+                    .tracking(1.4)
+                    .lineSpacing(1)
+                    .foregroundStyle(Theme.brass.opacity(0.85))
+                    .fixedSize()
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Champlin Enterprises")
         }
     }
 

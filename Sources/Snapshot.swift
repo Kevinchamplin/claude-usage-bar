@@ -17,7 +17,7 @@ enum Snapshot {
             write(PopoverBody(state: state, t: 1.3, now: now), to: root.appendingPathComponent("\(name).png"))
         }
 
-        for (name, state) in fixtures where name != "loading" {
+        for (name, state) in fixtures where name != "loading" && name != "signing-in" {
             let dir = root.appendingPathComponent("frames-\(name)")
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             for i in 0..<48 {
@@ -49,6 +49,10 @@ enum Snapshot {
             ("asleep", ViewState(usage: usage(27, .normal, 41, .normal, 12),
                                  error: UsageError.expired.message, sleeping: true,
                                  lastFetch: now.addingTimeInterval(-1800))),
+            ("signing-in", ViewState(usage: usage(27, .normal, 41, .normal, 12),
+                                     error: UsageError.expired.message, sleeping: true,
+                                     lastFetch: now.addingTimeInterval(-1800), signingIn: true,
+                                     signInNote: "Finish signing in in Terminal and your browser…")),
             ("loading", ViewState(loading: true)),
         ]
     }
