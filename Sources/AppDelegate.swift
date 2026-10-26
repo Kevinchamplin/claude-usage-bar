@@ -87,10 +87,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func makeMenu() -> NSMenu {
         let m = NSMenu()
         let refresh = NSMenuItem(title: "Refresh now", action: #selector(refreshNow), keyEquivalent: "r")
+        let signIn = NSMenuItem(title: "Sign in to Claude…", action: #selector(signIn), keyEquivalent: "")
         let open = NSMenuItem(title: "Open usage on claude.ai", action: #selector(openUsage), keyEquivalent: "")
         let quit = NSMenuItem(title: "Quit Claude Usage", action: #selector(quit), keyEquivalent: "q")
-        for i in [refresh, open, quit] { i.target = self }
+        for i in [refresh, signIn, open, quit] { i.target = self }
         m.addItem(refresh)
+        if store.state.sleeping { m.addItem(signIn) }
         m.addItem(open)
         m.addItem(.separator())
         m.addItem(quit)
@@ -98,6 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     @objc private func refreshNow() { store.refresh() }
+    @objc private func signIn() { store.signIn() }
 
     @objc private func openUsage() {
         if let url = URL(string: "https://claude.ai/settings/usage") { NSWorkspace.shared.open(url) }
