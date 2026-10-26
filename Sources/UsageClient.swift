@@ -31,15 +31,17 @@ struct Usage {
 
 enum UsageError: Error {
     case noToken
+    case expired
     case unauthorized
-    case rateLimited
+    case rateLimited(retryAfter: TimeInterval?)
     case network(String)
 
     var message: String {
         switch self {
         case .noToken: return "No Claude Code sign-in found. Run `claude` once."
-        case .unauthorized: return "Sign-in expired. Open Claude Code to refresh it."
-        case .rateLimited: return "Rate limited. Backing off."
+        case .expired: return "Sign-in expired. Run Claude Code on this Mac to refresh it."
+        case .unauthorized: return "Sign-in rejected (401). Run Claude Code on this Mac to refresh it."
+        case .rateLimited: return "Usage API rate limited (429). Backing off."
         case .network(let m): return m
         }
     }
@@ -47,7 +49,7 @@ enum UsageError: Error {
     /// Errors where the mascot goes to sleep instead of just showing a banner.
     var isAuth: Bool {
         switch self {
-        case .noToken, .unauthorized: return true
+        case .noToken, .expired, .unauthorized: return true
         default: return false
         }
     }
@@ -57,7 +59,11 @@ enum UsageClient {
     static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
 
     static func fetch() async -> Result<Usage, UsageError> {
-        guard let token = readToken() else { return .failure(.noToken) }
+        guard let cred = readCredential() else { return .failure(.noToken) }
+        // A dead token is never sent: it cannot succeed, and some failures
+        // come back as 429, which used to read as "rate limited" for days.
+        if let exp = cred.expiresAt, exp < Date() { return .failure(.expired) }
+        let token = cred.token
         var req = URLRequest(url: endpoint, timeoutInterval: 20)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
@@ -68,7 +74,9 @@ enum UsageClient {
             switch code {
             case 200: break
             case 401, 403: return .failure(.unauthorized)
-            case 429: return .failure(.rateLimited)
+            case 429:
+                let header = (resp as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After")
+                return .failure(.rateLimited(retryAfter: retryAfter(header)))
             default: return .failure(.network("Usage API returned \(code)."))
             }
             guard let usage = parse(data) else { return .failure(.network("Could not read the usage response.")) }
@@ -78,7 +86,24 @@ enum UsageClient {
         }
     }
 
-    private static func readToken() -> String? {
+    /// Retry-After is either delta-seconds or an HTTP date.
+    static func retryAfter(_ header: String?) -> TimeInterval? {
+        guard let h = header?.trimmingCharacters(in: .whitespaces), !h.isEmpty else { return nil }
+        if let secs = TimeInterval(h) { return max(0, secs) }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "GMT")
+        f.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        guard let d = f.date(from: h) else { return nil }
+        return max(0, d.timeIntervalSinceNow)
+    }
+
+    private struct Credential {
+        let token: String
+        let expiresAt: Date?
+    }
+
+    private static func readCredential() -> Credential? {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/security")
         p.arguments = ["find-generic-password", "-s", "Claude Code-credentials", "-w"]
@@ -93,7 +118,9 @@ enum UsageClient {
               let oauth = json["claudeAiOauth"] as? [String: Any],
               let token = oauth["accessToken"] as? String, !token.isEmpty
         else { return nil }
-        return token
+        // expiresAt is epoch milliseconds.
+        let exp = (oauth["expiresAt"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue / 1000) }
+        return Credential(token: token, expiresAt: exp)
     }
 
     static func parse(_ data: Data) -> Usage? {

@@ -8,8 +8,9 @@ struct ViewState {
     var lastFetch: Date?
 }
 
-/// Polls the usage API every 60s. Backs off on 429, keeps the last good
-/// numbers on screen when a poll fails, and refreshes on open when stale.
+/// Polls the usage API every 60s. Backs off on 429 (honouring Retry-After),
+/// keeps the last good numbers on screen when a poll fails, and refreshes on
+/// open when stale, but never earlier than the backoff allows.
 @MainActor
 final class UsageStore: ObservableObject {
     @Published private(set) var state = ViewState()
@@ -18,6 +19,9 @@ final class UsageStore: ObservableObject {
     private var timer: Timer?
     private var interval: TimeInterval = 60
     private var inFlight = false
+    private var lastAttempt: Date?
+    /// Set by a 429; opening the popover does not poll before this.
+    private var nextAllowed = Date.distantPast
 
     func start() {
         refresh()
@@ -25,7 +29,9 @@ final class UsageStore: ObservableObject {
 
     func popoverOpened() {
         isOpen = true
-        if let last = state.lastFetch, Date().timeIntervalSince(last) < 20 { return }
+        let now = Date()
+        if now < nextAllowed { return }
+        if let last = lastAttempt, now.timeIntervalSince(last) < 20 { return }
         refresh()
     }
 
@@ -34,6 +40,7 @@ final class UsageStore: ObservableObject {
     func refresh() {
         guard !inFlight else { return }
         inFlight = true
+        lastAttempt = Date()
         state.loading = true
         Task {
             let result = await UsageClient.fetch()
@@ -51,13 +58,19 @@ final class UsageStore: ObservableObject {
             state.sleeping = false
             state.lastFetch = Date()
             interval = 60
+            nextAllowed = .distantPast
         case .failure(let err):
             state.error = err.message
             state.sleeping = err.isAuth
-            if case .rateLimited = err {
-                interval = min(interval * 2, 600)
+            if case .rateLimited(let retryAfter) = err {
+                let backoff = min(max(interval, 60) * 2, 900)
+                interval = max(backoff, min(retryAfter ?? 0, 3600))
+                nextAllowed = Date().addingTimeInterval(interval)
             } else {
+                // Expired/no token costs no request, so checking each minute
+                // picks up Claude Code's refreshed token quickly.
                 interval = 60
+                nextAllowed = .distantPast
             }
         }
         schedule()

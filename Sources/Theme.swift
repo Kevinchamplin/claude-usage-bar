@@ -77,6 +77,7 @@ enum Format {
         let s = max(0, Int(now.timeIntervalSince(date)))
         if s < 60 { return "\(s)s" }
         if s < 3600 { return "\(s / 60)m" }
-        return "\(s / 3600)h"
+        if s < 172800 { return "\(s / 3600)h" }
+        return "\(s / 86400)d"
     }
 }

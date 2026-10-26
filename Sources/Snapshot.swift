@@ -47,7 +47,7 @@ enum Snapshot {
             ("warning", ViewState(usage: usage(74, .warning, 63, .normal, 30), lastFetch: fresh)),
             ("critical", ViewState(usage: usage(96, .critical, 88, .warning, 55), lastFetch: fresh)),
             ("asleep", ViewState(usage: usage(27, .normal, 41, .normal, 12),
-                                 error: UsageError.unauthorized.message, sleeping: true,
+                                 error: UsageError.expired.message, sleeping: true,
                                  lastFetch: now.addingTimeInterval(-1800))),
             ("loading", ViewState(loading: true)),
         ]
