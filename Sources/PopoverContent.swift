@@ -130,7 +130,10 @@ struct PopoverBody: View {
     }
 
     private var resetLine: String {
-        if let r = session?.resetsAt { return "resets in \(Format.span(until: r, now: now))" }
+        if let r = session?.resetsAt {
+            // Numbers from before a reset are stale; say so instead of "1m".
+            return r <= now ? "reset since last update" : "resets in \(Format.span(until: r, now: now))"
+        }
         if session == nil && state.error == nil { return "loading..." }
         return " "
     }
@@ -151,7 +154,7 @@ struct PopoverBody: View {
                             .monospacedDigit()
                             .foregroundStyle(c)
                         if let r = l.resetsAt {
-                            Text("· \(Format.span(until: r, now: now))")
+                            Text("· \(r <= now ? "reset" : Format.span(until: r, now: now))")
                                 .font(Fonts.mono(10))
                                 .foregroundStyle(Theme.dim)
                         }
